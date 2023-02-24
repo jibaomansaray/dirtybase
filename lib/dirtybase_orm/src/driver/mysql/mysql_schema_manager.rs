@@ -63,6 +63,7 @@ impl MySqlSchemaManager {
     async fn do_commit(&self, table: BaseTable) {
         if table.is_new() {
             println!("create new table");
+            self.create_table(table).await
         } else {
             self.create_table(table).await
         }
