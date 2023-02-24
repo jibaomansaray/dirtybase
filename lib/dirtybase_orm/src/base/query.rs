@@ -155,19 +155,19 @@ impl QueryBuilder {
         self.where_operator(column, Operator::NotLess, value, None)
     }
 
-    pub fn and_not_le<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+    pub fn and_nle<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
         self.where_operator(column, Operator::NotLess, value, Some(WhereJoin::And))
     }
 
-    pub fn or_not_le<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+    pub fn or_nle<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
         self.where_operator(column, Operator::NotLess, value, Some(WhereJoin::Or))
     }
 
-    pub fn not_le_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+    pub fn nle_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
         self.where_operator(column, Operator::NotLessOrEqual, value, None)
     }
 
-    pub fn and_not_le_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+    pub fn and_nle_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
         self.where_operator(
             column,
             Operator::NotLessOrEqual,
@@ -176,7 +176,7 @@ impl QueryBuilder {
         )
     }
 
-    pub fn or_not_le_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+    pub fn or_nle_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
         self.where_operator(column, Operator::NotLessOrEqual, value, Some(WhereJoin::Or))
     }
 
