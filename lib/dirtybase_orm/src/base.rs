@@ -1,4 +1,9 @@
 pub mod column;
+pub mod helper;
 pub mod manager;
+pub mod query;
+pub mod query_values;
+pub mod save;
 pub mod schema;
 pub mod table;
+pub mod user_table;

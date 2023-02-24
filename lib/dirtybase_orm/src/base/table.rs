@@ -1,4 +1,7 @@
-use super::column::{BaseColumn, ColumnType, RelationType};
+use super::{
+    column::{BaseColumn, ColumnType, RelationType},
+    user_table::user_table_name,
+};
 use std::fmt::Debug;
 
 #[derive(Debug)]
@@ -166,8 +169,8 @@ impl BaseTable {
         let mut _updated_at = self.updated_at();
     }
 
-    pub fn blame(&mut self, user_table: Option<&str>) {
-        let user_table_name = user_table.unwrap_or_else(|| "_core_users");
+    pub fn blame(&mut self) {
+        let user_table_name = &user_table_name();
         let mut _creator = self
             .ulid("creator")
             .set_is_nullable(false)

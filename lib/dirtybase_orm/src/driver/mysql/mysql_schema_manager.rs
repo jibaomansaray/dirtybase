@@ -1,12 +1,15 @@
 use crate::base::{
     column::{BaseColumn, ColumnDefault, ColumnType},
-    schema::{QueryBuilder, SchemaManagerTrait},
+    helper::generate_ulid,
+    query::QueryBuilder,
+    schema::SchemaManagerTrait,
     table::BaseTable,
 };
 use async_trait::async_trait;
 use futures::stream::TryStreamExt;
 use sqlx::{any::AnyKind, Any, Pool, Row};
 use std::{fmt::format, sync::Arc};
+use ulid::Ulid;
 
 pub struct MySqlSchemaManager {
     db_pool: Arc<Pool<Any>>,
@@ -50,29 +53,14 @@ impl SchemaManagerTrait for MySqlSchemaManager {
     }
 
     async fn commit(&self, table: BaseTable) {
-        //         let query = "SELECT *
-        // FROM INFORMATION_SCHEMA.COLUMNS
-        // WHERE table_name = ?";
-        //         let mut rows = sqlx::query(query)
-        //             .bind(&table.name)
-        //             .fetch(self.db_pool.as_ref());
-
-        //         while let Some(row) = rows.try_next().await.expect("could not get all countries") {
-        //             let name: String = row.try_get("COLUMN_NAME").unwrap();
-        //             dbg!(name);
-        //         }
-        self.do_commnit(table).await
+        self.do_commit(table).await
     }
 
-    fn query(&self, name: &str) -> QueryBuilder {
-        QueryBuilder {
-            tables: vec![name.to_owned()],
-        }
-    }
+    async fn query(&self, query: QueryBuilder) {}
 }
 
 impl MySqlSchemaManager {
-    async fn do_commnit(&self, table: BaseTable) {
+    async fn do_commit(&self, table: BaseTable) {
         if table.is_new() {
             println!("create new table");
         } else {
@@ -107,6 +95,28 @@ impl MySqlSchemaManager {
                 println!("----------------------- error result -------------");
                 dbg!(e.to_string());
                 println!("----------------------- error result -------------");
+            }
+        }
+
+        if self.has_table("_core_users").await {
+            let new_user_query = "INSERT INTO `_core_users` (`id`, `username`, `email`)
+VALUES (?, ?, ?);";
+
+            let id = generate_ulid();
+
+            let result = sqlx::query(new_user_query)
+                .bind(&id)
+                .bind("first_user")
+                .bind(34)
+                .execute(self.db_pool.as_ref())
+                .await;
+            match result {
+                Ok(_) => {
+                    println!("user was created")
+                }
+                Err(e) => {
+                    dbg!(e.to_string());
+                }
             }
         }
 
@@ -176,10 +186,10 @@ impl MySqlSchemaManager {
             };
         }
 
-        // column relationsip
+        // column relationship
         if let Some(relationship) = &column.relationship {
             the_type.push_str(&format!(
-                ", FOREIGN KEY (`{}`) REFERENCES `{}` (`{}`) ON DELETE CASCADE",
+                ", FOREIGN KEY (`{}`) REFERENCES `{}` (`{}`)",
                 &column.name,
                 &relationship.table(),
                 &relationship.column()
