@@ -1,10 +1,10 @@
 #[derive(Debug)]
 pub enum Value {
     Null,
-    Usize(usize),
-    Usizes(Vec<usize>),
-    Isize(isize),
-    Isizes(Vec<isize>),
+    U64(u64),
+    U64s(Vec<u64>),
+    I64(i64),
+    I64s(Vec<i64>),
     F64(f64),
     F64s(Vec<f64>),
     String(String),
@@ -16,24 +16,78 @@ pub enum Value {
 // i32
 impl From<i32> for Value {
     fn from(value: i32) -> Self {
-        Self::Isize(value as isize)
+        Self::I64(value.into())
     }
 }
 
 impl From<Vec<i32>> for Value {
     fn from(value: Vec<i32>) -> Self {
-        Self::Isizes(value.into_iter().map(|x| x as isize).collect())
+        Self::I64s(value.into_iter().map(|x| x.into()).collect())
     }
 }
 
 impl From<u32> for Value {
     fn from(value: u32) -> Self {
-        Self::Usize(value as usize)
+        Self::U64(value.into())
     }
 }
 
 impl From<Vec<u32>> for Value {
     fn from(value: Vec<u32>) -> Self {
-        Self::Usizes(value.into_iter().map(|x| x as usize).collect())
+        Self::U64s(value.into_iter().map(|x| x.into()).collect())
+    }
+}
+
+impl From<f32> for Value {
+    fn from(value: f32) -> Self {
+        Self::F64(value as f64)
+    }
+}
+
+impl From<Vec<f32>> for Value {
+    fn from(value: Vec<f32>) -> Self {
+        Self::F64s(value.into_iter().map(|x| x.into()).collect())
+    }
+}
+
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Self::String(value.to_owned())
+    }
+}
+
+impl From<Vec<&str>> for Value {
+    fn from(value: Vec<&str>) -> Self {
+        Self::Strings(value.into_iter().map(|x| x.to_owned()).collect())
+    }
+}
+
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Self::String(value)
+    }
+}
+
+impl From<Vec<String>> for Value {
+    fn from(value: Vec<String>) -> Self {
+        Self::Strings(value)
+    }
+}
+
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Self::Boolean(value)
+    }
+}
+
+impl From<Vec<bool>> for Value {
+    fn from(value: Vec<bool>) -> Self {
+        Self::Booleans(value)
+    }
+}
+
+impl From<()> for Value {
+    fn from(_value: ()) -> Self {
+        Self::Null
     }
 }
