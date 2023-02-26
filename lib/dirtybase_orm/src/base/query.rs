@@ -192,6 +192,82 @@ impl QueryBuilder {
         self.where_operator(column, Operator::Like, value, Some(WhereJoin::Or))
     }
 
+    pub fn nlike<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+        self.where_operator(column, Operator::NotLike, value, None)
+    }
+
+    pub fn and_nlike<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+        self.where_operator(column, Operator::NotLike, value, Some(WhereJoin::And))
+    }
+
+    pub fn or_nlike<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+        self.where_operator(column, Operator::NotLike, value, Some(WhereJoin::Or))
+    }
+
+    pub fn is_null(&mut self, column: &str) -> &mut Self {
+        self.where_operator(column, Operator::Null, Value::Null, None)
+    }
+
+    pub fn and_is_null(&mut self, column: &str) -> &mut Self {
+        self.where_operator(column, Operator::Null, Value::Null, Some(WhereJoin::And))
+    }
+
+    pub fn or_is_null(&mut self, column: &str) -> &mut Self {
+        self.where_operator(column, Operator::Null, Value::Null, Some(WhereJoin::Or))
+    }
+
+    pub fn is_not_null(&mut self, column: &str) -> &mut Self {
+        self.where_operator(column, Operator::NotNull, Value::Null, None)
+    }
+
+    pub fn and_is_not_null(&mut self, column: &str) -> &mut Self {
+        self.where_operator(column, Operator::NotNull, Value::Null, Some(WhereJoin::And))
+    }
+
+    pub fn or_is_not_null(&mut self, column: &str) -> &mut Self {
+        self.where_operator(column, Operator::NotNull, Value::Null, Some(WhereJoin::Or))
+    }
+
+    pub fn is_in<T: Into<Value> + IntoIterator>(&mut self, column: &str, value: T) -> &mut Self {
+        self.where_operator(column, Operator::In, value, None)
+    }
+
+    pub fn and_is_in<T: Into<Value> + IntoIterator>(
+        &mut self,
+        column: &str,
+        value: T,
+    ) -> &mut Self {
+        self.where_operator(column, Operator::In, value, Some(WhereJoin::And))
+    }
+
+    pub fn or_is_in<T: Into<Value> + IntoIterator>(&mut self, column: &str, value: T) -> &mut Self {
+        self.where_operator(column, Operator::In, value, Some(WhereJoin::Or))
+    }
+
+    pub fn is_not_in<T: Into<Value> + IntoIterator>(
+        &mut self,
+        column: &str,
+        value: T,
+    ) -> &mut Self {
+        self.where_operator(column, Operator::NotIn, value, None)
+    }
+
+    pub fn and_is_not_in<T: Into<Value> + IntoIterator>(
+        &mut self,
+        column: &str,
+        value: T,
+    ) -> &mut Self {
+        self.where_operator(column, Operator::NotIn, value, Some(WhereJoin::And))
+    }
+
+    pub fn or_is_not_in<T: Into<Value> + IntoIterator>(
+        &mut self,
+        column: &str,
+        value: T,
+    ) -> &mut Self {
+        self.where_operator(column, Operator::NotIn, value, Some(WhereJoin::Or))
+    }
+
     pub fn where_(&mut self, where_clause: WhereJoinOperator) -> &mut Self {
         self.where_clauses.push(where_clause);
         self

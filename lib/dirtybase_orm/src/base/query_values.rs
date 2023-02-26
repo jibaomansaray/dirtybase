@@ -26,6 +26,12 @@ impl From<Vec<i32>> for Value {
     }
 }
 
+impl FromIterator<i32> for Value {
+    fn from_iter<T: IntoIterator<Item = i32>>(iter: T) -> Self {
+        Self::F64s(iter.into_iter().map(|x| x.into()).collect())
+    }
+}
+
 impl From<u32> for Value {
     fn from(value: u32) -> Self {
         Self::U64(value.into())
@@ -35,6 +41,12 @@ impl From<u32> for Value {
 impl From<Vec<u32>> for Value {
     fn from(value: Vec<u32>) -> Self {
         Self::U64s(value.into_iter().map(|x| x.into()).collect())
+    }
+}
+
+impl FromIterator<u32> for Value {
+    fn from_iter<T: IntoIterator<Item = u32>>(iter: T) -> Self {
+        Self::U64s(iter.into_iter().map(|x| x.into()).collect())
     }
 }
 
@@ -50,6 +62,12 @@ impl From<Vec<f32>> for Value {
     }
 }
 
+impl FromIterator<f32> for Value {
+    fn from_iter<T: IntoIterator<Item = f32>>(iter: T) -> Self {
+        Self::F64s(iter.into_iter().map(|x| x.into()).collect())
+    }
+}
+
 impl From<&str> for Value {
     fn from(value: &str) -> Self {
         Self::String(value.to_owned())
@@ -59,6 +77,12 @@ impl From<&str> for Value {
 impl From<Vec<&str>> for Value {
     fn from(value: Vec<&str>) -> Self {
         Self::Strings(value.into_iter().map(|x| x.to_owned()).collect())
+    }
+}
+
+impl<'a> FromIterator<&'a str> for Value {
+    fn from_iter<T: IntoIterator<Item = &'a str>>(iter: T) -> Self {
+        Self::Strings(iter.into_iter().map(|x| x.to_owned()).collect())
     }
 }
 
@@ -74,6 +98,12 @@ impl From<Vec<String>> for Value {
     }
 }
 
+impl FromIterator<String> for Value {
+    fn from_iter<T: IntoIterator<Item = String>>(iter: T) -> Self {
+        Self::Strings(iter.into_iter().collect())
+    }
+}
+
 impl From<bool> for Value {
     fn from(value: bool) -> Self {
         Self::Boolean(value)
@@ -83,6 +113,12 @@ impl From<bool> for Value {
 impl From<Vec<bool>> for Value {
     fn from(value: Vec<bool>) -> Self {
         Self::Booleans(value)
+    }
+}
+
+impl FromIterator<bool> for Value {
+    fn from_iter<T: IntoIterator<Item = bool>>(iter: T) -> Self {
+        Self::Booleans(iter.into_iter().collect())
     }
 }
 
