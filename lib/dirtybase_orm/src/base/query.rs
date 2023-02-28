@@ -88,6 +88,42 @@ impl QueryBuilder {
         }
     }
 
+    pub fn tables(&self) -> &Vec<String> {
+        &self.tables
+    }
+
+    pub fn select_columns(&self) -> &Option<Vec<String>> {
+        &self.select_columns
+    }
+
+    pub fn where_clauses(&self) -> &Vec<WhereJoinOperator> {
+        &self.where_clauses
+    }
+
+    pub fn select(&mut self, column: &str) -> &mut Self {
+        if self.select_columns.is_none() {
+            self.select_columns = Some(Vec::new());
+        }
+
+        if let Some(columns) = &mut self.select_columns {
+            columns.push(column.to_owned());
+        }
+
+        self
+    }
+
+    pub fn select_multiple(&mut self, columns: Vec<String>) -> &mut Self {
+        if self.select_columns.is_none() {
+            self.select_columns = Some(Vec::new());
+        }
+
+        if let Some(existing) = &mut self.select_columns {
+            existing.extend(columns);
+        }
+
+        self
+    }
+
     pub fn eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
         self.where_operator(column, Operator::Equal, value, None)
     }
