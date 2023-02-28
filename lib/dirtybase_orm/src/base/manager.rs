@@ -29,11 +29,11 @@ impl Manager {
         self.schema.as_mut()
     }
 
-    pub async fn table<F>(&self, table: String, callback: F)
+    pub async fn table<F>(&self, table: &str, callback: F)
     where
         F: FnMut(&mut QueryBuilder),
     {
-        self.tables(vec![table], callback).await
+        self.tables(vec![table.to_owned()], callback).await
     }
 
     pub async fn tables<F>(&self, tables: Vec<String>, mut callback: F)
