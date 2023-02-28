@@ -5,7 +5,9 @@ pub enum Operator {
     Equal,
     NotEqual,
     Greater,
+    NotGreater,
     GreaterOrEqual,
+    NotGreaterOrEqual,
     Less,
     LessOrEqual,
     NotLess,
@@ -266,6 +268,37 @@ impl QueryBuilder {
         value: T,
     ) -> &mut Self {
         self.where_operator(column, Operator::NotIn, value, Some(WhereJoin::Or))
+    }
+
+    pub fn between<T: Into<Value>>(&mut self, column: &str, first: T, last: T) -> &mut Self {
+        self.gt_or_eq(column, first).and_le_or_eq(column, last)
+    }
+
+    pub fn and_between<T: Into<Value>>(&mut self, column: &str, first: T, last: T) -> &mut Self {
+        self.and_gt_or_eq(column, first).and_le_or_eq(column, last)
+    }
+
+    pub fn or_between<T: Into<Value>>(&mut self, column: &str, first: T, last: T) -> &mut Self {
+        self.or_gt_or_eq(column, first).and_le_or_eq(column, last)
+    }
+
+    pub fn not_between<T: Into<Value>>(&mut self, column: &str, first: T, last: T) -> &mut Self {
+        self.not_gt_or_eq(column, first).and_nle_or_eq(column, last)
+    }
+
+    pub fn and_not_between<T: Into<Value>>(
+        &mut self,
+        column: &str,
+        first: T,
+        last: T,
+    ) -> &mut Self {
+        self.and_not_gt_or_eq(column, first)
+            .and_nle_or_eq(column, last)
+    }
+
+    pub fn or_not_between<T: Into<Value>>(&mut self, column: &str, first: T, last: T) -> &mut Self {
+        self.or_not_gt_or_eq(column, first)
+            .and_nle_or_eq(column, last)
     }
 
     pub fn where_(&mut self, where_clause: WhereJoinOperator) -> &mut Self {
