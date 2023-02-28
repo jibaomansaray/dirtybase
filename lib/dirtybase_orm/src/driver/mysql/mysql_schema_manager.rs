@@ -1,13 +1,14 @@
 use crate::base::{
     column::{BaseColumn, ColumnDefault, ColumnType},
     helper::generate_ulid,
-    query::QueryBuilder,
+    query::{Condition, Operator, QueryBuilder, WhereJoinOperator},
+    query_values::Value,
     schema::SchemaManagerTrait,
     table::BaseTable,
 };
 use async_trait::async_trait;
 use futures::stream::TryStreamExt;
-use sqlx::{any::AnyKind, Any, Pool, Row};
+use sqlx::{any::AnyKind, Any, Column, Execute, Pool, Row};
 use std::{fmt::format, sync::Arc};
 use ulid::Ulid;
 
@@ -56,7 +57,31 @@ impl SchemaManagerTrait for MySqlSchemaManager {
         self.do_commit(table).await
     }
 
-    async fn query(&self, query: QueryBuilder) {}
+    async fn query(&self, query: QueryBuilder) {
+        let mut params = Vec::new();
+        let sql = self.build_query(&query, &mut params);
+
+        let mut q = sqlx::query::<sqlx::Any>(&sql);
+
+        for p in &params {
+            q = q.bind::<&String>(p);
+        }
+
+        println!("{:#?}", q.sql());
+
+        let mut rows = q.fetch(self.db_pool.as_ref());
+
+        while let Some(r) = rows.try_next().await.expect("Bad") {
+            dbg!(&r.columns()[0].type_info());
+            let x: String = r.get_unchecked("internal_id");
+            let rw = r.try_get::<&u64, &str>("internal_id");
+            println!("{:#?}", x);
+            panic!("id: {:#?}", rw);
+        }
+
+        // println!("{sql:#?}");
+        // println!("{params:#?}");
+    }
 }
 
 impl MySqlSchemaManager {
@@ -202,5 +227,137 @@ VALUES (?, ?, ?);";
 
         entry.push_str(&the_type);
         entry
+    }
+
+    fn build_query(&self, query: &QueryBuilder, params: &mut Vec<String>) -> String {
+        let mut sql = "SELECT".to_owned();
+
+        // fields
+        match query.select_columns() {
+            Some(fields) => sql = format!("{} {}", sql, fields.join(",")),
+            None => sql = format!("{} *", sql),
+        };
+
+        // from
+        sql = format!("{} FROM {}", sql, query.tables().join(","));
+
+        // joins
+
+        // wheres
+        sql = format!("{} {}", sql, self.build_where_clauses(&query, params));
+
+        sql
+    }
+
+    fn build_where_clauses(&self, query: &QueryBuilder, params: &mut Vec<String>) -> String {
+        let mut wheres = "".to_owned();
+        for where_join in query.where_clauses() {
+            match where_join {
+                WhereJoinOperator::And(condition) if !wheres.is_empty() => {
+                    wheres = format!(
+                        "{} AND {} ",
+                        wheres,
+                        self.transform_condition(&condition, params)
+                    );
+                }
+                WhereJoinOperator::Or(condition) if !wheres.is_empty() => {
+                    wheres = format!(
+                        "{} OR {} ",
+                        wheres,
+                        self.transform_condition(&condition, params)
+                    );
+                }
+                WhereJoinOperator::None(condition) => {
+                    wheres = format!(
+                        "{} {} ",
+                        wheres,
+                        self.transform_condition(&condition, params)
+                    );
+                }
+                WhereJoinOperator::And(condition) | WhereJoinOperator::Or(condition) => {
+                    wheres = format!(
+                        "{} {} ",
+                        wheres,
+                        self.transform_condition(&condition, params)
+                    );
+                }
+            }
+        }
+
+        if !wheres.is_empty() {
+            wheres = format!("WHERE {}", wheres);
+        }
+
+        wheres
+    }
+
+    fn transform_condition(&self, condition: &Condition, params: &mut Vec<String>) -> String {
+        self.transform_value(condition.value(), params);
+        match condition.operator() {
+            Operator::Equal => format!("{} = ?", condition.column()),
+            Operator::NotEqual => format!("{} <> ?", condition.column()),
+            Operator::Greater => format!("{} > ?", condition.column()),
+            Operator::NotGreater => format!("NOT {} > ?", condition.column()),
+            Operator::GreaterOrEqual => format!("{} >= ?", condition.column()),
+            Operator::NotGreaterOrEqual => format!("NOT {} >= ?", condition.column()),
+            Operator::Less => format!("{} < ?", condition.column()),
+            Operator::NotLess => format!("NOT {} < ?", condition.column()),
+            Operator::LessOrEqual => format!("{} <= ?", condition.column()),
+            Operator::NotLessOrEqual => format!("NOT {} <= ?", condition.column()),
+            Operator::Like => format!("{} like ?", condition.column()),
+            Operator::NotLike => format!("NOT {} like ?", condition.column()),
+            Operator::Null => format!("{} IS NULL", condition.column()),
+            Operator::NotNull => format!("{} IS NOT NULL", condition.column()),
+            Operator::In => format!("{} IN ?", condition.column()),
+            Operator::NotIn => format!("{} NOT IN ?", condition.column()),
+        }
+    }
+
+    fn transform_value(&self, value: &Value, params: &mut Vec<String>) {
+        match value {
+            Value::Null => (),
+            Value::U64(v) => params.push(v.to_string()),
+            Value::I64(v) => params.push(v.to_string()),
+            Value::F64(v) => params.push(v.to_string()),
+            Value::String(v) => params.push(format!("'{}'", v)),
+            Value::Boolean(v) => {
+                params.push(if *v { 1.to_string() } else { 0.to_string() });
+            }
+            Value::U64s(v) => params.push(format!(
+                "({})",
+                v.as_slice()
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+            )),
+            Value::I64s(v) => params.push(format!(
+                "({})",
+                v.as_slice()
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+            )),
+            Value::F64s(v) => params.push(format!(
+                "({})",
+                v.as_slice()
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+            )),
+            Value::Strings(v) => {
+                let s = v
+                    .iter()
+                    .map(|x| format!("'{}'", x))
+                    .collect::<Vec<String>>()
+                    .join(",");
+                params.push(format!("({})", s));
+            }
+            Value::SubQuery(q) => {
+                self.build_query(q, params);
+            }
+        }
     }
 }
