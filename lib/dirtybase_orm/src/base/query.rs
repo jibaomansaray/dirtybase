@@ -18,8 +18,6 @@ pub enum Operator {
     NotNull,
     In,
     NotIn,
-    Between,
-    NotBetween,
 }
 
 #[derive(Debug)]
