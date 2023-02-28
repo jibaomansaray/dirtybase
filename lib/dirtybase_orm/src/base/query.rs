@@ -56,6 +56,18 @@ impl Condition {
             value: value.into(),
         }
     }
+
+    pub fn column(&self) -> &String {
+        &self.column
+    }
+
+    pub fn operator(&self) -> &Operator {
+        &self.operator
+    }
+
+    pub fn value(&self) -> &Value {
+        &self.value
+    }
 }
 
 #[derive(Debug)]
