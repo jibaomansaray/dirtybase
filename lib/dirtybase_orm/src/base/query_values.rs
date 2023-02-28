@@ -112,18 +112,6 @@ impl From<bool> for Value {
     }
 }
 
-impl From<Vec<bool>> for Value {
-    fn from(value: Vec<bool>) -> Self {
-        Self::Booleans(value)
-    }
-}
-
-impl FromIterator<bool> for Value {
-    fn from_iter<T: IntoIterator<Item = bool>>(iter: T) -> Self {
-        Self::Booleans(iter.into_iter().collect())
-    }
-}
-
 impl From<()> for Value {
     fn from(_value: ()) -> Self {
         Self::Null
