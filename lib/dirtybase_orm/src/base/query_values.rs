@@ -1,3 +1,5 @@
+use super::query::QueryBuilder;
+
 #[derive(Debug)]
 pub enum Value {
     Null,
@@ -10,7 +12,7 @@ pub enum Value {
     String(String),
     Strings(Vec<String>),
     Boolean(bool),
-    Booleans(Vec<bool>),
+    SubQuery(QueryBuilder),
 }
 
 // i32
