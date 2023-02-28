@@ -160,11 +160,22 @@ impl QueryBuilder {
         self.where_operator(column, Operator::Greater, value, Some(WhereJoin::Or))
     }
 
-    pub fn ngt_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+    pub fn ngt<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+        self.where_operator(column, Operator::NotGreater, value, None)
+    }
+    pub fn and_ngt<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+        self.where_operator(column, Operator::NotGreater, value, Some(WhereJoin::And))
+    }
+
+    pub fn or_ngt<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+        self.where_operator(column, Operator::NotGreater, value, Some(WhereJoin::Or))
+    }
+
+    pub fn gt_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
         self.where_operator(column, Operator::GreaterOrEqual, value, None)
     }
 
-    pub fn and_ngt_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+    pub fn and_gt_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
         self.where_operator(
             column,
             Operator::GreaterOrEqual,
@@ -172,8 +183,30 @@ impl QueryBuilder {
             Some(WhereJoin::And),
         )
     }
-    pub fn or_ngt_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+    pub fn or_gt_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
         self.where_operator(column, Operator::GreaterOrEqual, value, Some(WhereJoin::Or))
+    }
+
+    pub fn not_gt_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+        self.where_operator(column, Operator::NotGreaterOrEqual, value, None)
+    }
+
+    pub fn and_not_gt_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+        self.where_operator(
+            column,
+            Operator::NotGreaterOrEqual,
+            value,
+            Some(WhereJoin::And),
+        )
+    }
+
+    pub fn or_not_gt_or_eq<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
+        self.where_operator(
+            column,
+            Operator::NotGreaterOrEqual,
+            value,
+            Some(WhereJoin::Or),
+        )
     }
 
     pub fn le<T: Into<Value>>(&mut self, column: &str, value: T) -> &mut Self {
