@@ -1,8 +1,8 @@
 pub mod app;
 pub mod http;
 
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-use app::setup::Dirtybase;
+use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use app::app_setup::Dirtybase;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
