@@ -1,2 +1,2 @@
-pub mod db_setup;
-pub mod setup;
+pub mod app_setup;
+pub mod setup_database;
