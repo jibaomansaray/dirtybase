@@ -1,19 +1,12 @@
 use super::{query::QueryBuilder, save::SaveRecord, schema::SchemaManagerTrait, table::BaseTable};
-use crate::driver::mysql::mysql_schema_manager::MySqlSchemaManager;
-use sqlx::{any::AnyKind, Any, Pool};
-use std::sync::Arc;
+use sqlx::any::AnyKind;
 
 pub struct Manager {
     schema: Box<dyn SchemaManagerTrait>,
 }
 
 impl Manager {
-    pub fn new(db_pool: Arc<Pool<Any>>) -> Self {
-        let schema = match &db_pool.any_kind() {
-            // @todo implement the other supported databases' driver
-            _ => Box::new(MySqlSchemaManager::instance(db_pool)),
-        };
-
+    pub fn new(schema: Box<dyn SchemaManagerTrait>) -> Self {
         Self { schema }
     }
 
