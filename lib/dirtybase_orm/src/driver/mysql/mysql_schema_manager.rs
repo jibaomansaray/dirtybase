@@ -8,23 +8,22 @@ use crate::base::{
 };
 use async_trait::async_trait;
 use futures::stream::TryStreamExt;
-use sqlx::{any::AnyKind, Any, Column, Execute, Pool, Row};
-use std::{fmt::format, sync::Arc};
-use ulid::Ulid;
+use sqlx::{any::AnyKind, Column, Execute, MySql, Pool, Row};
+use std::sync::Arc;
 
 pub struct MySqlSchemaManager {
-    db_pool: Arc<Pool<Any>>,
+    db_pool: Arc<Pool<MySql>>,
 }
 
 impl MySqlSchemaManager {
-    pub fn new(db_pool: Arc<Pool<Any>>) -> Self {
+    pub fn new(db_pool: Arc<Pool<MySql>>) -> Self {
         Self { db_pool }
     }
 }
 
 #[async_trait]
 impl SchemaManagerTrait for MySqlSchemaManager {
-    fn instance(db_pool: Arc<Pool<Any>>) -> Self
+    fn instance(db_pool: Arc<Pool<MySql>>) -> Self
     where
         Self: Sized,
     {
@@ -32,7 +31,8 @@ impl SchemaManagerTrait for MySqlSchemaManager {
     }
 
     fn kind(&self) -> AnyKind {
-        self.db_pool.any_kind()
+        AnyKind::MySql
+        // self.db_pool.any_kind()
     }
 
     fn fetch_table_for_update(&self, name: &str) -> BaseTable {
@@ -308,8 +308,25 @@ VALUES (?, ?, ?);";
             Operator::NotLike => format!("NOT {} like ?", condition.column()),
             Operator::Null => format!("{} IS NULL", condition.column()),
             Operator::NotNull => format!("{} IS NOT NULL", condition.column()),
-            Operator::In => format!("{} IN ?", condition.column()),
-            Operator::NotIn => format!("{} NOT IN ?", condition.column()),
+            Operator::In | Operator::NotIn => {
+                let length = match &condition.value() {
+                    Value::I64s(v) => v.len(),
+                    Value::U64s(v) => v.len(),
+                    Value::Strings(v) => v.len(),
+                    _ => 1,
+                };
+
+                let mut placeholder = Vec::new();
+                for _ in 0..length {
+                    placeholder.push("?");
+                }
+
+                if Operator::In == *condition.operator() {
+                    format!("{} IN ({})", condition.column(), placeholder.join(","))
+                } else {
+                    format!("{} NOT IN ({})", condition.column(), placeholder.join(","))
+                }
+            }
         }
     }
 
@@ -331,29 +348,24 @@ VALUES (?, ?, ?);";
                     .collect::<Vec<String>>()
                     .join(",")
             )),
-            Value::I64s(v) => params.push(format!(
-                "({})",
+            Value::I64s(v) => params.extend(
                 v.as_slice()
                     .iter()
                     .map(|x| x.to_string())
-                    .collect::<Vec<String>>()
-                    .join(",")
-            )),
-            Value::F64s(v) => params.push(format!(
-                "({})",
+                    .collect::<Vec<String>>(),
+            ),
+            Value::F64s(v) => params.extend(
                 v.as_slice()
                     .iter()
                     .map(|x| x.to_string())
-                    .collect::<Vec<String>>()
-                    .join(",")
-            )),
+                    .collect::<Vec<String>>(),
+            ),
             Value::Strings(v) => {
                 let s = v
                     .iter()
                     .map(|x| format!("'{}'", x))
-                    .collect::<Vec<String>>()
-                    .join(",");
-                params.push(format!("({})", s));
+                    .collect::<Vec<String>>();
+                params.extend(s);
             }
             Value::SubQuery(q) => {
                 self.build_query(q, params);
