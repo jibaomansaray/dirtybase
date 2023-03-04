@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use super::query::QueryBuilder;
-
 pub struct SaveRecord {
     table: String,
     columns: HashMap<String, String>,
