@@ -1,12 +1,12 @@
 use async_trait::async_trait;
-use sqlx::{any::AnyKind, Any, Pool};
+use sqlx::{any::AnyKind, MySql, Pool};
 use std::sync::Arc;
 
 use super::{query::QueryBuilder, table::BaseTable};
 
 #[async_trait]
 pub trait SchemaManagerTrait {
-    fn instance(db_pool: Arc<Pool<Any>>) -> Self
+    fn instance(db_pool: Arc<Pool<MySql>>) -> Self
     where
         Self: Sized;
 
