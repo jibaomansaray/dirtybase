@@ -1,6 +1,6 @@
 use super::query_values::Value;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Operator {
     Equal,
     NotEqual,
