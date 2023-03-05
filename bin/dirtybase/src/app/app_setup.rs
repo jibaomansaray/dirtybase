@@ -27,8 +27,8 @@ impl Dirtybase {
             }
         }
 
-        let kind = AnyKind::from_str(&database_connection).unwrap_or_else(|_| AnyKind::MySql);
-        let mut instance = Self {
+        let kind = AnyKind::from_str(&database_connection).unwrap_or(AnyKind::MySql);
+        let instance = Self {
             kind,
             db_pool: Arc::new(db_connect(&database_connection).await),
         };
@@ -41,12 +41,19 @@ impl Dirtybase {
         Ok(instance)
     }
 
+    pub fn kind(&self) -> &AnyKind {
+        &self.kind
+    }
+
     pub fn schema_manger(&self) -> base::manager::Manager {
-        match self.kind {
-            _ => base::manager::Manager::new(Box::new(MySqlSchemaManager::instance(
-                self.db_pool.clone(),
-            ))),
-        }
+        // TODO Check the database `kind`
+        // match self.kind {
+        //     _ => base::manager::Manager::new(Box::new(MySqlSchemaManager::instance(
+        //         self.db_pool.clone(),
+        //     ))),
+        // }
+
+        base::manager::Manager::new(Box::new(MySqlSchemaManager::instance(self.db_pool.clone())))
     }
 
     pub async fn db_setup(&self) {

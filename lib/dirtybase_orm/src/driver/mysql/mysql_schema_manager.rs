@@ -8,7 +8,7 @@ use crate::base::{
 };
 use async_trait::async_trait;
 use futures::stream::TryStreamExt;
-use sqlx::{any::AnyKind, Column, Execute, MySql, Pool, Row};
+use sqlx::{any::AnyKind, Execute, MySql, Pool, Row};
 use std::sync::Arc;
 
 pub struct MySqlSchemaManager {
@@ -41,16 +41,13 @@ impl SchemaManagerTrait for MySqlSchemaManager {
     async fn has_table(&self, name: &str) -> bool {
         let query = "SELECT table_name FROM INFORMATION_SCHEMA.TABLES WHERE table_name = ?";
 
-        let result = sqlx::query(&query)
+        let result = sqlx::query(query)
             .bind(name)
             .map(|_row| true)
             .fetch_one(self.db_pool.as_ref())
             .await;
 
-        match result {
-            Ok(exist) => exist,
-            Err(_) => false,
-        }
+        result.unwrap_or(false)
     }
 
     async fn commit(&self, table: BaseTable) {
@@ -97,7 +94,7 @@ impl MySqlSchemaManager {
     async fn create_table(&self, table: BaseTable) {
         let columns: Vec<String> = table
             .columns()
-            .into_iter()
+            .iter()
             .map(|column| self.create_column(column))
             .collect();
 
@@ -208,7 +205,7 @@ VALUES (?, ?, ?);";
                 ColumnDefault::UpdatedAt => {
                     the_type.push_str("current_timestamp() ON UPDATE CURRENT_TIMESTAMP")
                 }
-                ColumnDefault::Zero => the_type.push_str("0"),
+                ColumnDefault::Zero => the_type.push('0'),
             };
         }
 
@@ -244,7 +241,7 @@ VALUES (?, ?, ?);";
         // joins
 
         // wheres
-        sql = format!("{} {}", sql, self.build_where_clauses(&query, params));
+        sql = format!("{} {}", sql, self.build_where_clauses(query, params));
 
         sql
     }
@@ -257,28 +254,28 @@ VALUES (?, ?, ?);";
                     wheres = format!(
                         "{} AND {} ",
                         wheres,
-                        self.transform_condition(&condition, params)
+                        self.transform_condition(condition, params)
                     );
                 }
                 WhereJoinOperator::Or(condition) if !wheres.is_empty() => {
                     wheres = format!(
                         "{} OR {} ",
                         wheres,
-                        self.transform_condition(&condition, params)
+                        self.transform_condition(condition, params)
                     );
                 }
                 WhereJoinOperator::None(condition) => {
                     wheres = format!(
                         "{} {} ",
                         wheres,
-                        self.transform_condition(&condition, params)
+                        self.transform_condition(condition, params)
                     );
                 }
                 WhereJoinOperator::And(condition) | WhereJoinOperator::Or(condition) => {
                     wheres = format!(
                         "{} {} ",
                         wheres,
-                        self.transform_condition(&condition, params)
+                        self.transform_condition(condition, params)
                     );
                 }
             }
@@ -317,9 +314,7 @@ VALUES (?, ?, ?);";
                 };
 
                 let mut placeholder = Vec::new();
-                for _ in 0..length {
-                    placeholder.push("?");
-                }
+                placeholder.resize(length, "?");
 
                 if Operator::In == *condition.operator() {
                     format!("{} IN ({})", condition.column(), placeholder.join(","))

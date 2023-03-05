@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::query_values::Value;
 
 #[derive(Debug, PartialEq)]
@@ -75,7 +77,7 @@ pub struct QueryBuilder {
     where_clauses: Vec<WhereJoinOperator>,
     tables: Vec<String>,
     select_columns: Option<Vec<String>>,
-    set_columns: Option<Vec<String>>,
+    set_columns: Option<HashMap<String, String>>,
 }
 
 impl QueryBuilder {
@@ -96,6 +98,39 @@ impl QueryBuilder {
         &self.select_columns
     }
 
+    pub fn set_columns(&self) -> &Option<Vec<String>> {
+        &self.select_columns
+    }
+
+    pub fn set<T: ToString>(&mut self, column: &str, value: T) -> &mut Self {
+        if self.set_columns.is_none() {
+            self.set_columns = Some(HashMap::new());
+        }
+
+        if let Some(columns) = &mut self.set_columns {
+            columns.insert(column.to_string(), value.to_string());
+        }
+
+        self
+    }
+
+    pub fn set_multiple<T: ToString>(
+        &mut self,
+        column_and_values: HashMap<String, T>,
+    ) -> &mut Self {
+        if self.set_columns.is_none() {
+            self.set_columns = Some(HashMap::new());
+        }
+
+        if let Some(columns) = &mut self.set_columns {
+            for entry in column_and_values {
+                columns.insert(entry.0, entry.1.to_string());
+            }
+        }
+
+        self
+    }
+
     pub fn where_clauses(&self) -> &Vec<WhereJoinOperator> {
         &self.where_clauses
     }
@@ -112,13 +147,23 @@ impl QueryBuilder {
         self
     }
 
-    pub fn select_multiple(&mut self, columns: Vec<String>) -> &mut Self {
+    pub fn select_multiple(&mut self, columns: &[&str]) -> &mut Self {
         if self.select_columns.is_none() {
             self.select_columns = Some(Vec::new());
         }
 
         if let Some(existing) = &mut self.select_columns {
-            existing.extend(columns);
+            existing.extend(
+                columns
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>(),
+            );
+
+            // for a_column in columns {
+            //     existing.push(a_column.to_string());
+            //     // existing.extend(columns);
+            // }
         }
 
         self

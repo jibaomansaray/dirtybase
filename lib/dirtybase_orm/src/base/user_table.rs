@@ -8,7 +8,7 @@ pub struct User {
 static USER_TABLE: &str = "_core_users";
 
 pub fn user_table_name() -> String {
-    return USER_TABLE.to_owned();
+    USER_TABLE.to_owned()
 }
 
 // We need to have this table in the orm lib as

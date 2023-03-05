@@ -147,7 +147,7 @@ impl BaseTable {
     }
 
     pub fn id(&mut self, name: Option<&'static str>) -> &mut BaseColumn {
-        self.column(name.unwrap_or_else(|| "id"), |column| {
+        self.column(name.unwrap_or("id"), |column| {
             column.set_type(ColumnType::AutoIncrementId);
         })
     }
