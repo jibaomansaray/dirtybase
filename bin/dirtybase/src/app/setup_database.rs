@@ -86,28 +86,13 @@ async fn setup_applications_table(_manager: &Manager) {}
 // The table that will contain the "collections" definitions
 async fn setup_schema_table(_manager: &Manager) {}
 
-pub(crate) async fn create_data_tables(manager: &Manager) {
-    setup_migration_table(manager).await;
-    setup_file_metadata_table(manager).await;
-    setup_company_table(manager).await;
-    setup_users_table(manager).await;
-    setup_roles_table(manager).await;
-    setup_role_users_table(manager).await;
-    setup_applications_table(manager).await;
-    setup_schema_table(manager).await;
-
-    manager
-        .table("_core_users", |query| {
-            let columns = vec!["id", "internal_id", "created_at", "updated_at", "email"];
-
-            query
-                .is_not_in("internal_id", vec![1, 2, 20, 200])
-                .select_multiple(&columns);
-            // .select("internal_id")
-            // .select("id")
-            // .select("created_at")
-            // .select("updated_at")
-            // .select("email");
-        })
-        .await;
+pub(crate) async fn create_data_tables(manager: Manager) {
+    setup_migration_table(&manager).await;
+    setup_file_metadata_table(&manager).await;
+    setup_company_table(&manager).await;
+    setup_users_table(&manager).await;
+    setup_roles_table(&manager).await;
+    setup_role_users_table(&manager).await;
+    setup_applications_table(&manager).await;
+    setup_schema_table(&manager).await;
 }
