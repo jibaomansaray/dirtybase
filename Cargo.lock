@@ -615,6 +615,8 @@ dependencies = [
  "async-trait",
  "futures",
  "futures-util",
+ "serde",
+ "serde_json",
  "sqlx",
  "ulid",
 ]
