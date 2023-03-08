@@ -57,7 +57,7 @@ impl Dirtybase {
     }
 
     pub async fn db_setup(&self) {
-        create_data_tables(&self.schema_manger()).await;
+        create_data_tables(self.schema_manger()).await;
     }
 }
 
