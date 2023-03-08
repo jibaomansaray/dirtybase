@@ -22,20 +22,20 @@ impl Manager {
         self.schema.as_mut()
     }
 
-    pub async fn table<F>(&self, table: &str, callback: F)
+    pub fn table<F>(&mut self, table: &str, callback: F) -> &dyn SchemaManagerTrait
     where
         F: FnMut(&mut QueryBuilder),
     {
-        self.tables(vec![table.to_owned()], callback).await
+        self.tables(vec![table.to_owned()], callback)
     }
 
-    pub async fn tables<F>(&self, tables: Vec<String>, mut callback: F)
+    pub fn tables<F>(&mut self, tables: Vec<String>, mut callback: F) -> &dyn SchemaManagerTrait
     where
         F: FnMut(&mut QueryBuilder),
     {
         let mut query = QueryBuilder::new(tables);
         callback(&mut query);
-        self.schema.query(query).await
+        self.schema.query(query)
     }
 
     // Create a new table

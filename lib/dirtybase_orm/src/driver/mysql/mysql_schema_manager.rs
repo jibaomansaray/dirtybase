@@ -8,16 +8,24 @@ use crate::base::{
 };
 use async_trait::async_trait;
 use futures::stream::TryStreamExt;
-use sqlx::{any::AnyKind, Execute, MySql, Pool, Row};
+use sqlx::{any::AnyKind, mysql::MySqlRow, types::chrono, Column, MySql, Pool, Row};
 use std::sync::Arc;
 
+struct ActiveQuery {
+    statement: String,
+    params: Vec<String>,
+}
 pub struct MySqlSchemaManager {
     db_pool: Arc<Pool<MySql>>,
+    active_query: Option<ActiveQuery>,
 }
 
 impl MySqlSchemaManager {
     pub fn new(db_pool: Arc<Pool<MySql>>) -> Self {
-        Self { db_pool }
+        Self {
+            db_pool,
+            active_query: None,
+        }
     }
 }
 
@@ -54,30 +62,36 @@ impl SchemaManagerTrait for MySqlSchemaManager {
         self.do_commit(table).await
     }
 
-    async fn query(&self, query: QueryBuilder) {
+    fn query(&mut self, query: QueryBuilder) -> &dyn SchemaManagerTrait
+    where
+        Self: Sized,
+    {
         let mut params = Vec::new();
-        let sql = self.build_query(&query, &mut params);
+        let statement = self.build_query(&query, &mut params);
 
-        let mut q = sqlx::query::<sqlx::Any>(&sql);
+        self.active_query = Some(ActiveQuery { statement, params });
 
-        for p in &params {
-            q = q.bind::<&String>(p);
+        self
+    }
+
+    async fn fetch_all_as_json(&self) -> Vec<serde_json::Value> {
+        let mut results = Vec::new();
+        match &self.active_query {
+            Some(active_query) => {
+                let mut query = sqlx::query(&active_query.statement);
+                for p in &active_query.params {
+                    query = query.bind::<&str>(p);
+                }
+
+                let mut rows = query.fetch(self.db_pool.as_ref());
+                while let Some(row) = rows.try_next().await.ok().unwrap_or_default() {
+                    results.push(self.row_to_json(&row));
+                }
+            }
+            None => (),
         }
 
-        println!("{:#?}", q.sql());
-
-        let mut rows = q.fetch(self.db_pool.as_ref());
-
-        while let Some(r) = rows.try_next().await.expect("Bad") {
-            dbg!(&r.columns()[0].type_info());
-            let x: String = r.get_unchecked("internal_id");
-            let rw = r.try_get::<&u64, &str>("internal_id");
-            println!("{:#?}", x);
-            panic!("id: {:#?}", rw);
-        }
-
-        // println!("{sql:#?}");
-        // println!("{params:#?}");
+        results
     }
 }
 
@@ -366,5 +380,57 @@ VALUES (?, ?, ?);";
                 self.build_query(q, params);
             }
         }
+    }
+
+    fn row_to_json(&self, row: &MySqlRow) -> serde_json::Value {
+        let mut this_row = serde_json::Map::new();
+
+        for col in row.columns() {
+            match col.type_info().to_string().as_str() {
+                "CHAR" | "VARCHAR" | "TEXT" => {
+                    if let Ok(v) = row.try_get::<String, &str>(col.name()) {
+                        this_row.insert(col.name().to_owned(), serde_json::Value::String(v));
+                    } else {
+                        this_row.insert(col.name().to_owned(), serde_json::Value::Null);
+                    }
+                }
+                "BOOLEAN" => {
+                    let v: bool = row.get(col.name());
+                    this_row.insert(col.name().to_owned(), serde_json::Value::Bool(v));
+                }
+                "BIGINT UNSIGNED" => {
+                    let x: u64 = row.get(col.name());
+                    this_row.insert(
+                        col.name().to_owned(),
+                        serde_json::from_str(x.to_string().as_str()).unwrap(),
+                    );
+                }
+                "BIGINT" => {
+                    let v: i64 = row.get(col.name());
+
+                    this_row.insert(
+                        col.name().to_owned(),
+                        serde_json::from_str(v.to_string().as_str()).unwrap(),
+                    );
+                }
+                "DATETIME" => {
+                    let v = row.try_get::<chrono::NaiveDateTime, &str>(col.name());
+
+                    if let Ok(v) = v {
+                        this_row.insert(
+                            col.name().to_owned(),
+                            serde_json::Value::String(v.to_string()),
+                        );
+                    } else {
+                        this_row.insert(col.name().to_owned(), serde_json::Value::Null);
+                    }
+                }
+                _ => {
+                    dbg!("not mapped {:#?}", col.type_info());
+                }
+            }
+        }
+
+        serde_json::Value::Object(this_row)
     }
 }

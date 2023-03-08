@@ -18,7 +18,9 @@ pub trait SchemaManagerTrait {
     // commit schema changes
     async fn commit(&self, table: BaseTable);
 
-    async fn query(&self, query_builder: QueryBuilder);
+    fn query(&mut self, query_builder: QueryBuilder) -> &dyn SchemaManagerTrait;
+
+    async fn fetch_all_as_json(&self) -> Vec<serde_json::Value>;
 
     // checks if a table exist in the database
     async fn has_table(&self, name: &str) -> bool;
