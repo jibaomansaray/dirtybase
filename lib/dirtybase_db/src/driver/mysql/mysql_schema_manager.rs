@@ -1,7 +1,7 @@
 use crate::base::{
     column::{BaseColumn, ColumnDefault, ColumnType},
     helper::generate_ulid,
-    query::{Condition, Operator, QueryBuilder, WhereJoinOperator},
+    query::{Condition, JoinType, Operator, QueryBuilder, WhereJoinOperator},
     query_values::Value,
     schema::SchemaManagerTrait,
     table::BaseTable,
@@ -246,16 +246,58 @@ VALUES (?, ?, ?);";
         // fields
         match query.select_columns() {
             Some(fields) => sql = format!("{} {}", sql, fields.join(",")),
-            None => sql = format!("{} *", sql),
+            None => {
+                for entry in query.tables().into_iter().enumerate() {
+                    if entry.0 == 0 {
+                        sql = format!("{} {}.*", sql, entry.1)
+                    } else {
+                        sql = format!("{}, {}.*", sql, entry.1)
+                    }
+                }
+            }
         };
+
+        // join fields
+        if let Some(joins) = query.joins() {
+            for a_join in joins {
+                match a_join.select_columns() {
+                    Some(columns) => {
+                        sql = format!("{}, {}", sql, columns.join(","));
+                    }
+                    None => sql = format!("{}, {}.*", sql, a_join.table()),
+                }
+            }
+        }
 
         // from
         sql = format!("{} FROM {}", sql, query.tables().join(","));
 
         // joins
 
+        if let Some(joins) = query.joins() {
+            for a_join in joins {
+                match a_join.join_type() {
+                    JoinType::Left => {
+                        sql = format!(
+                            "{} left join {} on {}",
+                            sql,
+                            a_join.table(),
+                            a_join.join_clause()
+                        );
+                    }
+                    _ => (),
+                }
+            }
+        }
+        // sql = format!(
+        //     "{} {}",
+        //     sql, "left join students on grades.student_id = students.id"
+        // );
+
         // wheres
         sql = format!("{} {}", sql, self.build_where_clauses(query, params));
+
+        dbg!(&sql);
 
         sql
     }
@@ -385,33 +427,158 @@ VALUES (?, ?, ?);";
     fn row_to_json(&self, row: &MySqlRow) -> serde_json::Value {
         let mut this_row = serde_json::Map::new();
 
+        // types are from : https://docs.rs/sqlx/latest/sqlx/mysql/types/index.html
         for col in row.columns() {
+            let name = col.name().to_owned();
             match col.type_info().to_string().as_str() {
-                "CHAR" | "VARCHAR" | "TEXT" => {
-                    if let Ok(v) = row.try_get::<String, &str>(col.name()) {
-                        this_row.insert(col.name().to_owned(), serde_json::Value::String(v));
+                "BOOLEAN" | "TINYINT(1)" => {
+                    let v: bool = row.get(col.name());
+                    this_row.insert(name, serde_json::Value::Bool(v));
+                }
+                "TINYINT" => {
+                    let v = row.try_get::<i8, &str>(col.name());
+                    if let Ok(v) = v {
+                        this_row
+                            .insert(name, serde_json::Value::Number(serde_json::Number::from(v)));
                     } else {
-                        this_row.insert(col.name().to_owned(), serde_json::Value::Null);
+                        this_row.insert(
+                            name,
+                            serde_json::Value::Number(serde_json::Number::from(0_i8)),
+                        );
                     }
                 }
-                "BOOLEAN" => {
-                    let v: bool = row.get(col.name());
-                    this_row.insert(col.name().to_owned(), serde_json::Value::Bool(v));
+                "SMALLINT" => {
+                    let v = row.try_get::<i16, &str>(col.name());
+                    if let Ok(v) = v {
+                        this_row
+                            .insert(name, serde_json::Value::Number(serde_json::Number::from(v)));
+                    } else {
+                        this_row.insert(
+                            name,
+                            serde_json::Value::Number(serde_json::Number::from(0_i16)),
+                        );
+                    }
                 }
-                "BIGINT UNSIGNED" => {
-                    let x: u64 = row.get(col.name());
-                    this_row.insert(
-                        col.name().to_owned(),
-                        serde_json::from_str(x.to_string().as_str()).unwrap(),
-                    );
+                "INT" => {
+                    let v = row.try_get::<i32, &str>(col.name());
+                    if let Ok(v) = v {
+                        this_row
+                            .insert(name, serde_json::Value::Number(serde_json::Number::from(v)));
+                    } else {
+                        this_row.insert(
+                            name,
+                            serde_json::Value::Number(serde_json::Number::from(0_i32)),
+                        );
+                    }
                 }
                 "BIGINT" => {
-                    let v: i64 = row.get(col.name());
-
-                    this_row.insert(
-                        col.name().to_owned(),
-                        serde_json::from_str(v.to_string().as_str()).unwrap(),
-                    );
+                    let v = row.try_get::<i64, &str>(col.name());
+                    if let Ok(v) = v {
+                        this_row
+                            .insert(name, serde_json::Value::Number(serde_json::Number::from(v)));
+                    } else {
+                        this_row.insert(
+                            name,
+                            serde_json::Value::Number(serde_json::Number::from(0_i64)),
+                        );
+                    }
+                }
+                "TINYINT UNSIGNED" => {
+                    let v = row.try_get::<u8, &str>(col.name());
+                    if let Ok(v) = v {
+                        this_row
+                            .insert(name, serde_json::Value::Number(serde_json::Number::from(v)));
+                    } else {
+                        this_row.insert(
+                            name,
+                            serde_json::Value::Number(serde_json::Number::from(0_u8)),
+                        );
+                    }
+                }
+                "SMALLINT UNSIGNED" => {
+                    let v = row.try_get::<u16, &str>(col.name());
+                    if let Ok(v) = v {
+                        this_row
+                            .insert(name, serde_json::Value::Number(serde_json::Number::from(v)));
+                    } else {
+                        this_row.insert(
+                            name,
+                            serde_json::Value::Number(serde_json::Number::from(0_u16)),
+                        );
+                    }
+                }
+                "INT UNSIGNED" => {
+                    let v = row.try_get::<u32, &str>(col.name());
+                    if let Ok(v) = v {
+                        this_row
+                            .insert(name, serde_json::Value::Number(serde_json::Number::from(v)));
+                    } else {
+                        this_row.insert(
+                            name,
+                            serde_json::Value::Number(serde_json::Number::from(0_u32)),
+                        );
+                    }
+                }
+                "BIGINT UNSIGNED" => {
+                    let v = row.try_get::<u64, &str>(col.name());
+                    if let Ok(v) = v {
+                        this_row.insert(
+                            col.name().to_owned(),
+                            serde_json::Value::Number(serde_json::Number::from(v)),
+                        );
+                    } else {
+                        this_row.insert(
+                            col.name().to_owned(),
+                            serde_json::Value::Number(serde_json::Number::from(0_u64)),
+                        );
+                    }
+                }
+                "DOUBLE" | "FLOAT" => {
+                    let v = row.try_get::<f64, &str>(col.name());
+                    if let Ok(v) = v {
+                        this_row.insert(
+                            name,
+                            serde_json::Value::Number(serde_json::Number::from_f64(v).unwrap()),
+                        );
+                    } else {
+                        this_row.insert(
+                            name,
+                            serde_json::Value::Number(
+                                serde_json::Number::from_f64(0.0_f64).unwrap(),
+                            ),
+                        );
+                    }
+                }
+                "CHAR" | "VARCHAR" | "TEXT" => {
+                    if let Ok(v) = row.try_get::<String, &str>(col.name()) {
+                        this_row.insert(name, serde_json::Value::String(v));
+                    } else {
+                        this_row.insert(name, serde_json::Value::Null);
+                    }
+                }
+                "TIMESTAMP" => {
+                    let v = row.try_get::<chrono::DateTime<chrono::Utc>, &str>(col.name());
+                    if let Ok(v) = v {
+                        this_row.insert(name, serde_json::Value::String(v.to_string()));
+                    } else {
+                        this_row.insert(name, serde_json::Value::Null);
+                    }
+                }
+                "DATE" => {
+                    let v = row.try_get::<chrono::NaiveDate, &str>(col.name());
+                    if let Ok(v) = v {
+                        this_row.insert(name, serde_json::Value::String(v.to_string()));
+                    } else {
+                        this_row.insert(name, serde_json::Value::Null);
+                    }
+                }
+                "TIME" => {
+                    let v = row.try_get::<chrono::NaiveTime, &str>(col.name());
+                    if let Ok(v) = v {
+                        this_row.insert(name, serde_json::Value::String(v.to_string()));
+                    } else {
+                        this_row.insert(name, serde_json::Value::Null);
+                    }
                 }
                 "DATETIME" => {
                     let v = row.try_get::<chrono::NaiveDateTime, &str>(col.name());
@@ -424,6 +591,9 @@ VALUES (?, ?, ?);";
                     } else {
                         this_row.insert(col.name().to_owned(), serde_json::Value::Null);
                     }
+                }
+                "VARBINARY" | "BINARY" | "BLOB" => {
+                    // TODO find a mean to represent binary
                 }
                 _ => {
                     dbg!("not mapped {:#?}", col.type_info());

@@ -38,6 +38,13 @@ pub enum WhereJoinOperator {
     Or(Condition),
 }
 
+#[derive(Debug)]
+pub enum JoinType {
+    Inner,
+    Left,
+    Right,
+}
+
 pub enum WhereJoin {
     And,
     Or,
@@ -78,6 +85,75 @@ pub struct QueryBuilder {
     tables: Vec<String>,
     select_columns: Option<Vec<String>>,
     set_columns: Option<HashMap<String, String>>,
+    joins: Option<Vec<JoinQueryBuilder>>,
+}
+
+#[derive(Debug)]
+pub struct JoinQueryBuilder {
+    table: String,
+    join_clause: String,
+    select_columns: Option<Vec<String>>,
+    join_type: JoinType,
+}
+
+impl JoinQueryBuilder {
+    pub fn new(
+        table: &str,
+        left_table: &str,
+        operator: &str,
+        right_table: &str,
+        join_type: JoinType,
+        select_columns: Option<&[&str]>,
+    ) -> Self {
+        Self {
+            table: table.to_owned(),
+            join_clause: format!("{} {} {}", left_table, operator, right_table),
+            join_type,
+            select_columns: match select_columns {
+                Some(columns) => Some(columns.iter().map(|f| f.to_string()).collect()),
+                None => None,
+            },
+        }
+    }
+
+    pub fn select(&mut self, column: &str) -> &mut Self {
+        if self.select_columns.is_none() {
+            self.select_columns = Some(Vec::new());
+        }
+
+        self.select_columns
+            .as_mut()
+            .unwrap()
+            .push(column.to_owned());
+
+        self
+    }
+
+    pub fn select_multiple(&mut self, columns: Vec<String>) -> &mut Self {
+        if self.select_columns.is_none() {
+            self.select_columns = Some(Vec::new());
+        }
+
+        self.select_columns.as_mut().unwrap().extend(columns);
+
+        self
+    }
+
+    pub fn select_columns(&self) -> &Option<Vec<String>> {
+        &self.select_columns
+    }
+
+    pub fn join_clause(&self) -> &str {
+        &self.join_clause
+    }
+
+    pub fn table(&self) -> &str {
+        &self.table
+    }
+
+    pub fn join_type(&self) -> &JoinType {
+        &self.join_type
+    }
 }
 
 impl QueryBuilder {
@@ -87,6 +163,7 @@ impl QueryBuilder {
             tables,
             select_columns: None,
             set_columns: None,
+            joins: None,
         }
     }
 
@@ -100,6 +177,10 @@ impl QueryBuilder {
 
     pub fn set_columns(&self) -> &Option<Vec<String>> {
         &self.select_columns
+    }
+
+    pub fn joins(&self) -> &Option<Vec<JoinQueryBuilder>> {
+        &self.joins
     }
 
     pub fn set<T: ToString>(&mut self, column: &str, value: T) -> &mut Self {
@@ -453,6 +534,67 @@ impl QueryBuilder {
             },
             _ => self.first_or_and(condition),
         }
+    }
+
+    pub fn join(
+        &mut self,
+        table: &str,
+        left_table: &str,
+        operator: &str,
+        right_table: &str,
+        join_type: JoinType,
+        select_columns: Option<&[&str]>,
+    ) -> &mut Self {
+        if self.joins.is_none() {
+            self.joins = Some(Vec::new());
+        }
+
+        let join = JoinQueryBuilder::new(
+            table,
+            left_table,
+            operator,
+            right_table,
+            join_type,
+            select_columns,
+        );
+        self.joins.as_mut().unwrap().push(join);
+
+        self
+    }
+
+    pub fn left_join(
+        &mut self,
+        table: &str,
+        left_table: &str,
+        operator: &str,
+        right_table: &str,
+    ) -> &mut Self {
+        self.join(
+            table,
+            left_table,
+            operator,
+            right_table,
+            JoinType::Left,
+            None,
+        )
+    }
+
+    pub fn left_join_and_select(
+        &mut self,
+        table: &str,
+        left_table: &str,
+        operator: &str,
+        right_table: &str,
+        select_columns: &[&str],
+    ) -> &mut Self {
+        self.join(
+            table,
+            left_table,
+            operator,
+            right_table,
+            JoinType::Left,
+            Some(select_columns),
+        )
     }
 
     fn or_where(&mut self, condition: Condition) -> &mut Self {
