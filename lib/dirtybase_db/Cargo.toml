@@ -1,5 +1,5 @@
 [package]
-name = "dirtybase_orm"
+name = "dirtybase_db"
 version = "0.1.0"
 edition = "2021"
 

@@ -1,4 +1,4 @@
-use dirtybase_orm::base::{manager::Manager, user_table::setup_users_table};
+use dirtybase_db::base::{manager::Manager, user_table::setup_users_table};
 
 // The table that will hold migration information
 async fn setup_migration_table(manager: &Manager) {

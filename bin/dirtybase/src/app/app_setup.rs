@@ -1,5 +1,5 @@
-use dirtybase_orm::base::schema::SchemaManagerTrait;
-use dirtybase_orm::{base, driver::mysql::mysql_schema_manager::MySqlSchemaManager};
+use dirtybase_db::base::schema::SchemaManagerTrait;
+use dirtybase_db::{base, driver::mysql::mysql_schema_manager::MySqlSchemaManager};
 use dotenv::dotenv;
 use sqlx::{any::AnyKind, mysql::MySqlPoolOptions, MySql, Pool};
 use std::{env, str::FromStr, sync::Arc};

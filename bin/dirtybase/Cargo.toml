@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dirtybase_orm = { path = "../../lib/dirtybase_orm" }
+dirtybase_db = { path = "../../lib/dirtybase_db" }
 actix-web = "4.3.0"
 anyhow = "1.0.68"
 clap = { version = "4.1.4", features = ["derive"] }
