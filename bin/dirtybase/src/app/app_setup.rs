@@ -1,8 +1,7 @@
 use dirtybase_db::base::schema::SchemaManagerTrait;
 use dirtybase_db::{base, driver::mysql::mysql_schema_manager::MySqlSchemaManager};
-use dotenv::dotenv;
 use sqlx::{any::AnyKind, mysql::MySqlPoolOptions, MySql, Pool};
-use std::{env, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 
 use super::setup_database::create_data_tables;
 
@@ -12,25 +11,11 @@ pub struct Dirtybase {
 }
 
 impl Dirtybase {
-    pub async fn new() -> anyhow::Result<Self> {
-        let mut database_connection = "".to_owned();
-
-        match dotenv() {
-            Err(e) => {
-                panic!("could not load .env file: {:#}", e);
-            }
-            _ => {
-                // database connection string
-                if let Ok(db_connection) = env::var("DATABASE") {
-                    database_connection = db_connection;
-                }
-            }
-        }
-
-        let kind = AnyKind::from_str(&database_connection).unwrap_or(AnyKind::MySql);
+    pub async fn new(db_connection: &str, db_max_connection: u32) -> anyhow::Result<Self> {
+        let kind = AnyKind::from_str(db_connection).unwrap_or(AnyKind::MySql);
         let instance = Self {
             kind,
-            db_pool: Arc::new(db_connect(&database_connection).await),
+            db_pool: Arc::new(db_connect(db_connection, db_max_connection).await),
         };
 
         // match instance.kind {
@@ -61,9 +46,9 @@ impl Dirtybase {
     }
 }
 
-pub async fn db_connect(conn: &str) -> Pool<MySql> {
+pub async fn db_connect(conn: &str, max_connection: u32) -> Pool<MySql> {
     match MySqlPoolOptions::new()
-        .max_connections(5)
+        .max_connections(max_connection)
         .connect(conn)
         .await
     {
