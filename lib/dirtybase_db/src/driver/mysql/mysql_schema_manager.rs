@@ -120,8 +120,6 @@ impl MySqlSchemaManager {
             columns.join(",\n")
         );
 
-        println!("{}", &query);
-
         let result = sqlx::query(&query).execute(self.db_pool.as_ref()).await;
 
         match result {
@@ -289,8 +287,6 @@ VALUES (?, ?, ?);";
 
         // wheres
         sql = format!("{} {}", sql, self.build_where_clauses(query, params));
-
-        dbg!(&sql);
 
         sql
     }
