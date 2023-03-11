@@ -117,3 +117,48 @@ impl From<()> for Value {
         Self::Null
     }
 }
+
+impl Value {
+    pub fn to_param(&self, params: &mut Vec<String>) {
+        match self {
+            Self::Null => (),
+            Self::U64(v) => params.push(v.to_string()),
+            Self::I64(v) => params.push(v.to_string()),
+            Self::F64(v) => params.push(v.to_string()),
+            Self::String(v) => params.push(format!("'{}'", v)),
+            Self::Boolean(v) => {
+                params.push(if *v { 1.to_string() } else { 0.to_string() });
+            }
+            Self::U64s(v) => params.push(format!(
+                "({})",
+                v.as_slice()
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>()
+                    .join(",")
+            )),
+            Self::I64s(v) => params.extend(
+                v.as_slice()
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>(),
+            ),
+            Self::F64s(v) => params.extend(
+                v.as_slice()
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>(),
+            ),
+            Self::Strings(v) => {
+                let s = v
+                    .iter()
+                    .map(|x| format!("'{}'", x))
+                    .collect::<Vec<String>>();
+                params.extend(s);
+            }
+            Self::SubQuery(_) => {
+                // Do not append. The specific database driver may handle this differently
+            }
+        }
+    }
+}

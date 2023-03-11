@@ -1,82 +1,14 @@
 use std::collections::HashMap;
 
-use super::query_values::Value;
-
-#[derive(Debug, PartialEq)]
-pub enum Operator {
-    Equal,
-    NotEqual,
-    Greater,
-    NotGreater,
-    GreaterOrEqual,
-    NotGreaterOrEqual,
-    Less,
-    LessOrEqual,
-    NotLess,
-    NotLessOrEqual,
-    Like,
-    NotLike,
-    Null,
-    NotNull,
-    In,
-    NotIn,
-}
+use super::{
+    join_builder::JoinQueryBuilder, query_conditions::Condition, query_join_types::JoinType,
+    query_operators::Operator, query_values::Value, where_join_operators::WhereJoinOperator,
+};
 
 #[derive(Debug)]
-pub enum Action {
-    Insert,
-    Update,
-    Delete,
-    SelectAll,
-    SelectOne,
-}
-
-#[derive(Debug)]
-pub enum WhereJoinOperator {
-    None(Condition),
-    And(Condition),
-    Or(Condition),
-}
-
-#[derive(Debug)]
-pub enum JoinType {
-    Inner,
-    Left,
-    Right,
-}
-
 pub enum WhereJoin {
     And,
     Or,
-}
-
-#[derive(Debug)]
-pub struct Condition {
-    pub column: String,
-    pub operator: Operator,
-    pub value: Value,
-}
-
-impl Condition {
-    pub fn new<T: Into<Value>>(column: &str, operator: Operator, value: T) -> Self {
-        Self {
-            column: column.to_owned(),
-            operator,
-            value: value.into(),
-        }
-    }
-
-    pub fn column(&self) -> &String {
-        &self.column
-    }
-
-    pub fn operator(&self) -> &Operator {
-        &self.operator
-    }
-
-    pub fn value(&self) -> &Value {
-        &self.value
-    }
 }
 
 #[derive(Debug)]
@@ -86,74 +18,6 @@ pub struct QueryBuilder {
     select_columns: Option<Vec<String>>,
     set_columns: Option<HashMap<String, String>>,
     joins: Option<Vec<JoinQueryBuilder>>,
-}
-
-#[derive(Debug)]
-pub struct JoinQueryBuilder {
-    table: String,
-    join_clause: String,
-    select_columns: Option<Vec<String>>,
-    join_type: JoinType,
-}
-
-impl JoinQueryBuilder {
-    pub fn new(
-        table: &str,
-        left_table: &str,
-        operator: &str,
-        right_table: &str,
-        join_type: JoinType,
-        select_columns: Option<&[&str]>,
-    ) -> Self {
-        Self {
-            table: table.to_owned(),
-            join_clause: format!("{} {} {}", left_table, operator, right_table),
-            join_type,
-            select_columns: match select_columns {
-                Some(columns) => Some(columns.iter().map(|f| f.to_string()).collect()),
-                None => None,
-            },
-        }
-    }
-
-    pub fn select(&mut self, column: &str) -> &mut Self {
-        if self.select_columns.is_none() {
-            self.select_columns = Some(Vec::new());
-        }
-
-        self.select_columns
-            .as_mut()
-            .unwrap()
-            .push(column.to_owned());
-
-        self
-    }
-
-    pub fn select_multiple(&mut self, columns: Vec<String>) -> &mut Self {
-        if self.select_columns.is_none() {
-            self.select_columns = Some(Vec::new());
-        }
-
-        self.select_columns.as_mut().unwrap().extend(columns);
-
-        self
-    }
-
-    pub fn select_columns(&self) -> &Option<Vec<String>> {
-        &self.select_columns
-    }
-
-    pub fn join_clause(&self) -> &str {
-        &self.join_clause
-    }
-
-    pub fn table(&self) -> &str {
-        &self.table
-    }
-
-    pub fn join_type(&self) -> &JoinType {
-        &self.join_type
-    }
 }
 
 impl QueryBuilder {
@@ -240,11 +104,6 @@ impl QueryBuilder {
                     .map(|x| x.to_string())
                     .collect::<Vec<String>>(),
             );
-
-            // for a_column in columns {
-            //     existing.push(a_column.to_string());
-            //     // existing.extend(columns);
-            // }
         }
 
         self
@@ -536,6 +395,14 @@ impl QueryBuilder {
         }
     }
 
+    fn or_where(&mut self, condition: Condition) -> &mut Self {
+        self.where_(WhereJoinOperator::Or(condition))
+    }
+
+    fn and_where(&mut self, condition: Condition) -> &mut Self {
+        self.where_(WhereJoinOperator::Or(condition))
+    }
+
     pub fn join(
         &mut self,
         table: &str,
@@ -560,6 +427,41 @@ impl QueryBuilder {
         self.joins.as_mut().unwrap().push(join);
 
         self
+    }
+
+    pub fn inner_join(
+        &mut self,
+        table: &str,
+        left_table: &str,
+        operator: &str,
+        right_table: &str,
+    ) -> &mut Self {
+        self.join(
+            table,
+            left_table,
+            operator,
+            right_table,
+            JoinType::Inner,
+            None,
+        )
+    }
+
+    pub fn inner_join_and_select(
+        &mut self,
+        table: &str,
+        left_table: &str,
+        operator: &str,
+        right_table: &str,
+        select_columns: &[&str],
+    ) -> &mut Self {
+        self.join(
+            table,
+            left_table,
+            operator,
+            right_table,
+            JoinType::Inner,
+            Some(select_columns),
+        )
     }
 
     pub fn left_join(
@@ -597,11 +499,38 @@ impl QueryBuilder {
         )
     }
 
-    fn or_where(&mut self, condition: Condition) -> &mut Self {
-        self.where_(WhereJoinOperator::Or(condition))
+    pub fn right_join(
+        &mut self,
+        table: &str,
+        left_table: &str,
+        operator: &str,
+        right_table: &str,
+    ) -> &mut Self {
+        self.join(
+            table,
+            left_table,
+            operator,
+            right_table,
+            JoinType::Right,
+            None,
+        )
     }
 
-    fn and_where(&mut self, condition: Condition) -> &mut Self {
-        self.where_(WhereJoinOperator::Or(condition))
+    pub fn right_join_and_select(
+        &mut self,
+        table: &str,
+        left_table: &str,
+        operator: &str,
+        right_table: &str,
+        select_columns: &[&str],
+    ) -> &mut Self {
+        self.join(
+            table,
+            left_table,
+            operator,
+            right_table,
+            JoinType::Right,
+            Some(select_columns),
+        )
     }
 }

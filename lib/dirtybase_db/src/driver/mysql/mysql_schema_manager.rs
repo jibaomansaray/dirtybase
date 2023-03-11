@@ -1,7 +1,9 @@
 use crate::base::{
     column::{BaseColumn, ColumnDefault, ColumnType},
     helper::generate_ulid,
-    query::{Condition, JoinType, Operator, QueryBuilder, WhereJoinOperator},
+    query::QueryBuilder,
+    query_conditions::Condition,
+    query_operators::Operator,
     query_values::Value,
     schema::SchemaManagerTrait,
     table::BaseTable,
@@ -247,7 +249,7 @@ VALUES (?, ?, ?);";
         match query.select_columns() {
             Some(fields) => sql = format!("{} {}", sql, fields.join(",")),
             None => {
-                for entry in query.tables().into_iter().enumerate() {
+                for entry in query.tables().iter().enumerate() {
                     if entry.0 == 0 {
                         sql = format!("{} {}.*", sql, entry.1)
                     } else {
@@ -273,26 +275,17 @@ VALUES (?, ?, ?);";
         sql = format!("{} FROM {}", sql, query.tables().join(","));
 
         // joins
-
         if let Some(joins) = query.joins() {
             for a_join in joins {
-                match a_join.join_type() {
-                    JoinType::Left => {
-                        sql = format!(
-                            "{} left join {} on {}",
-                            sql,
-                            a_join.table(),
-                            a_join.join_clause()
-                        );
-                    }
-                    _ => (),
-                }
+                sql = format!(
+                    "{} {} join {} on {}",
+                    sql,
+                    a_join.join_type(),
+                    a_join.table(),
+                    a_join.join_clause()
+                );
             }
         }
-        // sql = format!(
-        //     "{} {}",
-        //     sql, "left join students on grades.student_id = students.id"
-        // );
 
         // wheres
         sql = format!("{} {}", sql, self.build_where_clauses(query, params));
@@ -305,36 +298,10 @@ VALUES (?, ?, ?);";
     fn build_where_clauses(&self, query: &QueryBuilder, params: &mut Vec<String>) -> String {
         let mut wheres = "".to_owned();
         for where_join in query.where_clauses() {
-            match where_join {
-                WhereJoinOperator::And(condition) if !wheres.is_empty() => {
-                    wheres = format!(
-                        "{} AND {} ",
-                        wheres,
-                        self.transform_condition(condition, params)
-                    );
-                }
-                WhereJoinOperator::Or(condition) if !wheres.is_empty() => {
-                    wheres = format!(
-                        "{} OR {} ",
-                        wheres,
-                        self.transform_condition(condition, params)
-                    );
-                }
-                WhereJoinOperator::None(condition) => {
-                    wheres = format!(
-                        "{} {} ",
-                        wheres,
-                        self.transform_condition(condition, params)
-                    );
-                }
-                WhereJoinOperator::And(condition) | WhereJoinOperator::Or(condition) => {
-                    wheres = format!(
-                        "{} {} ",
-                        wheres,
-                        self.transform_condition(condition, params)
-                    );
-                }
-            }
+            wheres = where_join.as_clause(
+                &wheres,
+                &self.transform_condition(where_join.condition(), params),
+            );
         }
 
         if !wheres.is_empty() {
@@ -346,22 +313,9 @@ VALUES (?, ?, ?);";
 
     fn transform_condition(&self, condition: &Condition, params: &mut Vec<String>) -> String {
         self.transform_value(condition.value(), params);
-        match condition.operator() {
-            Operator::Equal => format!("{} = ?", condition.column()),
-            Operator::NotEqual => format!("{} <> ?", condition.column()),
-            Operator::Greater => format!("{} > ?", condition.column()),
-            Operator::NotGreater => format!("NOT {} > ?", condition.column()),
-            Operator::GreaterOrEqual => format!("{} >= ?", condition.column()),
-            Operator::NotGreaterOrEqual => format!("NOT {} >= ?", condition.column()),
-            Operator::Less => format!("{} < ?", condition.column()),
-            Operator::NotLess => format!("NOT {} < ?", condition.column()),
-            Operator::LessOrEqual => format!("{} <= ?", condition.column()),
-            Operator::NotLessOrEqual => format!("NOT {} <= ?", condition.column()),
-            Operator::Like => format!("{} like ?", condition.column()),
-            Operator::NotLike => format!("NOT {} like ?", condition.column()),
-            Operator::Null => format!("{} IS NULL", condition.column()),
-            Operator::NotNull => format!("{} IS NOT NULL", condition.column()),
-            Operator::In | Operator::NotIn => {
+
+        let placeholder =
+            if *condition.operator() == Operator::In || *condition.operator() == Operator::NotIn {
                 let length = match &condition.value() {
                     Value::I64s(v) => v.len(),
                     Value::U64s(v) => v.len(),
@@ -371,56 +325,22 @@ VALUES (?, ?, ?);";
 
                 let mut placeholder = Vec::new();
                 placeholder.resize(length, "?");
+                placeholder.join(",")
+            } else {
+                "?".to_owned()
+            };
 
-                if Operator::In == *condition.operator() {
-                    format!("{} IN ({})", condition.column(), placeholder.join(","))
-                } else {
-                    format!("{} NOT IN ({})", condition.column(), placeholder.join(","))
-                }
-            }
-        }
+        condition
+            .operator()
+            .as_clause(condition.column(), &placeholder)
     }
 
     fn transform_value(&self, value: &Value, params: &mut Vec<String>) {
         match value {
-            Value::Null => (),
-            Value::U64(v) => params.push(v.to_string()),
-            Value::I64(v) => params.push(v.to_string()),
-            Value::F64(v) => params.push(v.to_string()),
-            Value::String(v) => params.push(format!("'{}'", v)),
-            Value::Boolean(v) => {
-                params.push(if *v { 1.to_string() } else { 0.to_string() });
-            }
-            Value::U64s(v) => params.push(format!(
-                "({})",
-                v.as_slice()
-                    .iter()
-                    .map(|x| x.to_string())
-                    .collect::<Vec<String>>()
-                    .join(",")
-            )),
-            Value::I64s(v) => params.extend(
-                v.as_slice()
-                    .iter()
-                    .map(|x| x.to_string())
-                    .collect::<Vec<String>>(),
-            ),
-            Value::F64s(v) => params.extend(
-                v.as_slice()
-                    .iter()
-                    .map(|x| x.to_string())
-                    .collect::<Vec<String>>(),
-            ),
-            Value::Strings(v) => {
-                let s = v
-                    .iter()
-                    .map(|x| format!("'{}'", x))
-                    .collect::<Vec<String>>();
-                params.extend(s);
-            }
             Value::SubQuery(q) => {
                 self.build_query(q, params);
             }
+            _ => value.to_param(params),
         }
     }
 
